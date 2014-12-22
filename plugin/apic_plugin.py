@@ -6,7 +6,6 @@ from heat.openstack.common import log as logging
 import acitoolkit.acisession
 import acitoolkit.acitoolkit as ACI
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -50,6 +49,8 @@ class APIC(resource.Resource):
         'Name': _('Name'),
         'Response': _('APIC Response'),
         'AuthStatusCode': _('APIC Authentication Status'),
+        'Body': _('Body of request'),
+        'Status': _('Status Code of Request'),
     }
 
     def _resolve_attribute(self, name):
@@ -80,12 +81,13 @@ class APIC(resource.Resource):
         if method == 'Tenant':
             obj = ACI.Tenant(str(data))
             resp = self._apic_session.push_to_apic(obj.get_url(), obj.get_json())
-            self.resource_id_set(resp.text)
+            self.resource_id_set(resp.request.body)
 
         elif method == 'raw':
             url = self.properties['RawJSON'][0]
             data = self.properties['RawJSON'][1]
-            self._apic_session.push_to_apic(url, data)
+            resp = self._apic_session.push_to_apic(url, data)
+            self.resource_id_set(resp.request.body)
 
         else:
             raise ValueError('%s is not defined as a method of ACI' % method)

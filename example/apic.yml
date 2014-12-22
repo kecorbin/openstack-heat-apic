@@ -29,9 +29,19 @@ outputs:
   Name:
     description: Object Name
     value: { get_attr: [ apic, Name ] }
-  Response2:
+  Response:
     description: DN Object
     value: { get_attr: [ apic, Response ] }
   AuthStatusCode:
     description: Status of APIC Authentication
     value: { get_attr: [ apic, AuthStatusCode ] }
+  Name2:
+    description: Object Name
+    value: { get_attr: [ apic2, Name ] }
+  Response2:
+    description: DN Object
+    value: { get_attr: [ apic2, Response ] }
+  AuthStatusCode2:
+    description: Status of APIC Authentication
+    value: { get_attr: [ apic2, AuthStatusCode ] }
+
