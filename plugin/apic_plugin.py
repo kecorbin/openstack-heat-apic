@@ -28,11 +28,21 @@ class APIC(resource.Resource):
             'Default': '',
             'Description': _('APIC Password')
         },
+        'ToolkitMethod': {
+            'Type': 'String',
+            'Default': '',
+            'Description': _('Toolkit Method to use')
+        },
         'ToolkitData': {
             'Type': 'String',
             'Default': '',
-            'Description': _('JSON or XML data')
-        }
+            'Description': _('Data for ToolkitMethod')
+        },
+        'RawJSON': {
+            'Type': 'List',
+            'Default': '',
+            'Description': _('URL , JSON Data to post')
+        },
 
     }
 
@@ -66,11 +76,24 @@ class APIC(resource.Resource):
         resp = self._apic_session.login()
         self.apic_attributes['AuthStatusCode'] = resp.status_code
 
+    def _build_object(self, method, data):
+        if method == 'Tenant':
+            obj = ACI.Tenant(str(data))
+            resp = self._apic_session.push_to_apic(obj.get_url(), obj.get_json())
+            self.resource_id_set(resp.text)
+
+        elif method == 'raw':
+            url = self.properties['RawJSON'][0]
+            data = self.properties['RawJSON'][1]
+            self._apic_session.push_to_apic(url, data)
+
+        else:
+            raise ValueError('%s is not defined as a method of ACI' % method)
+
     def handle_create(self):
-        name = self.properties['ToolkitData']
-        obj = ACI.Tenant(str(name))
-        resp = self._apic_session.push_to_apic(obj.get_url(),obj.get_json())
-        self.resource_id_set(resp.text)
+        method = self.properties['ToolkitMethod']
+        data = self.properties['ToolkitData']
+        self._build_object(method, data)
 
     def handle_delete(self):
         pass
@@ -83,5 +106,3 @@ def resource_mapping():
     return {
         'OS::Heat::APIC': APIC
     }
-
-

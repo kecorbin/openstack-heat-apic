@@ -10,7 +10,19 @@ resources:
       Hostname: 192.168.3.13
       User: admin
       Password: ins3965!
-      ToolkitData: deleteme1
+      ToolkitMethod: Tenant
+      ToolkitData: TenantMethodDelete
+
+  apic2:
+    type: OS::Heat::APIC
+    properties:
+      Hostname: 192.168.3.13
+      User: admin
+      Password: ins3965!
+      ToolkitMethod: raw
+      RawJSON: [ '/api/mo/uni.json' ,
+      {"fvTenant":{"attributes":{"descr":"","dn":"uni/tn-raw","name":"raw"}}} ]
+
 
 outputs:
 
