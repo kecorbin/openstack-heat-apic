@@ -3,17 +3,8 @@
 from heat.engine import resource
 from heat.openstack.common.gettextutils import _
 from heat.openstack.common import log as logging
-from urllib2 import Request,urlopen, URLError
-
 import acitoolkit.acisession
 import acitoolkit.acitoolkit as ACI
-
-import json
-
-import cobra.mit.access
-import cobra.mit.session
-import cobra.mit.request
-import cobra.model.fv
 
 
 logger = logging.getLogger(__name__)
@@ -37,12 +28,7 @@ class APIC(resource.Resource):
             'Default': '',
             'Description': _('APIC Password')
         },
-        'Target': {
-            'Type': 'String',
-            'Default': '',
-
-        },
-        'Data': {
+        'ToolkitData': {
             'Type': 'String',
             'Default': '',
             'Description': _('JSON or XML data')
@@ -66,7 +52,6 @@ class APIC(resource.Resource):
         else:
             raise ValueError('No Valid Attribute %s' % name)
 
-
     def __init__(self, *args, **kwargs):
         super(APIC, self).__init__(*args, **kwargs)
 
@@ -76,40 +61,16 @@ class APIC(resource.Resource):
             'Hostname': self.properties['Hostname'],
             'User': self.properties['User'],
             'Password': self.properties['Password'],
-            'Target': self.properties['Target'],
-            'Data': self.properties['Data'],
         }
         self._apic_session = acitoolkit.acisession.Session('http://'+args['Hostname'], args['User'], args['Password'])
         resp = self._apic_session.login()
         self.apic_attributes['AuthStatusCode'] = resp.status_code
 
-    def authenticate(self,host,user,passwd):
-        ls = cobra.mit.session.LoginSession('http://'+host,user,passwd)
-        md = cobra.mit.access.MoDirectory(ls)
-        md.login()
-        return md
-
     def handle_create(self):
-        args = {
-            'Hostname': self.properties['Hostname'],
-            'User': self.properties['User'],
-            'Password': self.properties['Password'],
-            'Target': self.properties['Target'],
-            'Data': self.properties['Data'],
-        }
-
-        md = self.authenticate(args['Hostname'], args['User'], args['Password'])
-        topMo = md.lookupByDn(args['Target'])
-        fvTenant = cobra.model.fv.Tenant(topMo, name='test2')
-        self.resource_id_set(fvTenant.dn)
-        #self.apic_attributes['Tenants'] = ACI.Tenant.get(self._apic_session)
-
-        c = cobra.mit.request.ConfigRequest()
-        c.addMo(topMo)
-        md.commit(c)
-
-
-
+        name = self.properties['ToolkitData']
+        obj = ACI.Tenant(str(name))
+        resp = self._apic_session.push_to_apic(obj.get_url(),obj.get_json())
+        self.resource_id_set(resp.text)
 
     def handle_delete(self):
         pass

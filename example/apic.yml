@@ -10,8 +10,7 @@ resources:
       Hostname: 192.168.3.13
       User: admin
       Password: ins3965!
-      Target: uni
-      Data: blah
+      ToolkitData: deleteme1
 
 outputs:
 
