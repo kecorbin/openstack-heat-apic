@@ -1,0 +1,23 @@
+heat_template_version: 2013-05-23
+
+description: >
+  HOT template to test OS::Heat::APIC
+
+resources:
+  apic:
+    type: OS::Heat::APIC
+    properties:
+      Hostname: 192.168.3.13
+      User: admin
+      Password: ins3965!
+      Target: uni
+      Data: blah
+
+outputs:
+
+  Name:
+    description: Object Name
+    value: { get_attr: [ apic, Name ] }
+  Response2:
+    description: DN Object
+    value: { get_attr: [ apic, Response ] }
