@@ -28,4 +28,8 @@ Restart openstack-heat-engine (RHEL example)
 
     systemctl restart openstack-heat-engine
     
- 
+
+
+# Usage
+
+sample HOT template in example directory
