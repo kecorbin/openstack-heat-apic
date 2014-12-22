@@ -3,14 +3,23 @@ openstack-heat-apic
 
 Heat plugin for Cisco APIC
 
-requires
-====================
-
-acitoolkit
+# Installation
 
 
-installation
-====================
-git clone https://github.com/kecorbin/openstack-heat-plugin\n
-cd openstack-heat-plugin\n
-cp plugin/apic_plugin.py /usr/lib/heat\n
+## Environment
+
+Required
+
+* Python 2.7+
+* [acitoolkit](http://datacenter.github.io/acitoolkit/)
+
+
+## Downloading
+
+Clone the repository
+
+     git clone https://github.com/kecorbin/openstack-heat-plugin
+
+Copy the plugin into heat plugin_dirs (/etc/heat/heat.conf)
+    
+     cp plugin/apic_plugin.py /usr/lib/heat
