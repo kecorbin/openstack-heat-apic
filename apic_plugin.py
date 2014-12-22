@@ -6,6 +6,8 @@ from heat.openstack.common import log as logging
 from urllib2 import Request,urlopen, URLError
 
 import acitoolkit.acisession
+import acitoolkit.acitoolkit as ACI
+
 import json
 
 import cobra.mit.access
@@ -51,11 +53,25 @@ class APIC(resource.Resource):
     attributes_schema = {
         'Name': _('Name'),
         'Response': _('APIC Response'),
+        'AuthStatusCode': _('APIC Authentication Status'),
     }
+
+    def _resolve_attribute(self, name):
+        if name == 'Name':
+            return self.physical_resource_name()
+        elif name == 'Response':
+            return self.resource_id
+        elif name == 'AuthStatusCode':
+            return self.apic_attributes['AuthStatusCode']
+        else:
+            raise ValueError('No Valid Attribute %s' % name)
+
 
     def __init__(self, *args, **kwargs):
         super(APIC, self).__init__(*args, **kwargs)
+
         ## integrate acitoolkit
+        self.apic_attributes = {}
         args = {
             'Hostname': self.properties['Hostname'],
             'User': self.properties['User'],
@@ -63,8 +79,9 @@ class APIC(resource.Resource):
             'Target': self.properties['Target'],
             'Data': self.properties['Data'],
         }
-        self._apic_session = acitoolkit.acisession(args['Hostname'], args['User'], args['Password'])
-
+        self._apic_session = acitoolkit.acisession.Session('http://'+args['Hostname'], args['User'], args['Password'])
+        resp = self._apic_session.login()
+        self.apic_attributes['AuthStatusCode'] = resp.status_code
 
     def authenticate(self,host,user,passwd):
         ls = cobra.mit.session.LoginSession('http://'+host,user,passwd)
@@ -85,17 +102,13 @@ class APIC(resource.Resource):
         topMo = md.lookupByDn(args['Target'])
         fvTenant = cobra.model.fv.Tenant(topMo, name='test2')
         self.resource_id_set(fvTenant.dn)
+        #self.apic_attributes['Tenants'] = ACI.Tenant.get(self._apic_session)
+
         c = cobra.mit.request.ConfigRequest()
         c.addMo(topMo)
         md.commit(c)
 
-    def _resolve_attribute(self, name):
-        if name == 'Name':
-            return self.physical_resource_name()
-        elif name == 'Response':
-            return self.resource_id
-        else:
-            raise ValueError('No Valid Attribute %s' % name)
+
 
 
     def handle_delete(self):

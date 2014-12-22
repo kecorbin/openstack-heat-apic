@@ -21,3 +21,6 @@ outputs:
   Response2:
     description: DN Object
     value: { get_attr: [ apic, Response ] }
+  AuthStatusCode:
+    description: Status of APIC Authentication
+    value: { get_attr: [ apic, AuthStatusCode ] }
