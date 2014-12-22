@@ -24,7 +24,7 @@ Copy the plugin into heat plugin_dirs (/etc/heat/heat.conf)
     
      cp plugin/apic_plugin.py /usr/lib/heat
 
-Restart openstack-heat-engine
+Restart openstack-heat-engine (RHEL example)
 
     systemctl restart openstack-heat-engine
     
