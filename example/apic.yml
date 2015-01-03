@@ -7,21 +7,15 @@ resources:
   apic:
     type: OS::Heat::APIC
     properties:
-      Hostname: 192.168.3.13
-      User: admin
-      Password: ins3965!
       ToolkitMethod: Tenant
-      ToolkitData: TenantMethodDelete
+      ToolkitData: ByronDelete
 
   apic2:
     type: OS::Heat::APIC
     properties:
-      Hostname: 192.168.3.13
-      User: admin
-      Password: ins3965!
       ToolkitMethod: raw
       RawJSON: [ '/api/mo/uni.json' ,
-      {"fvTenant":{"attributes":{"descr":"","dn":"uni/tn-raw","name":"raw"}}} ]
+      {"fvTenant":{"attributes":{"descr":"","dn":"uni/tn-Byron2","name":"Byron2"}}} ]
 
 
 outputs:

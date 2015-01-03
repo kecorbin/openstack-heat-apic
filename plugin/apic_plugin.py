@@ -5,27 +5,27 @@ from heat.openstack.common.gettextutils import _
 from heat.openstack.common import log as logging
 import acitoolkit.acisession
 import acitoolkit.acitoolkit as ACI
-
+import iniparse
 logger = logging.getLogger(__name__)
 
 
 class APIC(resource.Resource):
 
     properties_schema = {
-        'Hostname': {
+        'Project': {
             'Type': 'String',
             'Default': '',
-            'Description': _('Hostname of the APIC Controller')
+            'Description': _('Project Name')
         },
-        'User': {
+        'Network': {
             'Type': 'String',
             'Default': '',
-            'Description': _('Username')
+            'Description': _('Network Name')
         },
-        'Password': {
+        'Contract': {
             'Type': 'String',
             'Default': '',
-            'Description': _('APIC Password')
+            'Description': _('Network Name')
         },
         'ToolkitMethod': {
             'Type': 'String',
@@ -60,6 +60,8 @@ class APIC(resource.Resource):
             return self.resource_id
         elif name == 'AuthStatusCode':
             return self.apic_attributes['AuthStatusCode']
+        elif name == 'Status':
+            return self.apic_attributes['Status']
         else:
             raise ValueError('No Valid Attribute %s' % name)
 
@@ -68,12 +70,12 @@ class APIC(resource.Resource):
 
         ## integrate acitoolkit
         self.apic_attributes = {}
-        args = {
-            'Hostname': self.properties['Hostname'],
-            'User': self.properties['User'],
-            'Password': self.properties['Password'],
-        }
-        self._apic_session = acitoolkit.acisession.Session('http://'+args['Hostname'], args['User'], args['Password'])
+        self.cfg = iniparse.INIConfig(open('/etc/heat/plugins.ini'))
+        host = self.cfg.apic.apic_host
+        username = self.cfg.apic.apic_username
+        password = self.cfg.apic.apic_password
+
+        self._apic_session = acitoolkit.acisession.Session('http://'+host, username, password)
         resp = self._apic_session.login()
         self.apic_attributes['AuthStatusCode'] = resp.status_code
 
@@ -82,6 +84,16 @@ class APIC(resource.Resource):
             obj = ACI.Tenant(str(data))
             resp = self._apic_session.push_to_apic(obj.get_url(), obj.get_json())
             self.resource_id_set(resp.request.body)
+
+        elif method == 'ConsumeContract':
+            tenant = self.properties['Project']
+            epg = self.properties['Network']
+            contract = self.properties['Contract']
+            url = '/api/node/mo/uni/tn-_Cerner_%s/ap-Cerner_app/epg-%s.json' % (tenant,epg)
+            data = {"fvRsCons":{"attributes":{"tnVzBrCPName": contract,"status":"created"},"children":[]}}
+            resp = self._apic_session.push_to_apic(url, data)
+            self.resource_id_set(resp.request.body)
+            self.apic_attributes['Status'] = resp.status_code
 
         elif method == 'raw':
             url = self.properties['RawJSON'][0]
