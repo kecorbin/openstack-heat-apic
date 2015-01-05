@@ -35,11 +35,11 @@ Restart openstack-heat-engine (RHEL example)
 sample HOT template in example directory
 
 
-the following section needs to be added to heat.conf
+The following section needs to be added to heat.conf
 
-[apic_plugin]
-apic_system_id=openstack\n
-apic_host=1.1.1.1\n
-apic_username=admin\n
-apic_password=password\n
+    [apic_plugin]
+        apic_system_id=openstack
+        apic_host=1.1.1.1
+        apic_username=admin
+        apic_password=password
 
