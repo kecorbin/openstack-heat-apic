@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-
 from heat.engine import resource
 from heat.openstack.common.gettextutils import _
 from heat.openstack.common import log as logging
 import acitoolkit.acisession
-import acitoolkit.acitoolkit as ACI
-import iniparse
+import acitoolkit.acitoolkit as aci
+from oslo.config import cfg
+
 logger = logging.getLogger(__name__)
 
-from oslo.config import cfg
 plugin_opts = [
     cfg.StrOpt('apic_host',
                default='apic_host',
@@ -24,11 +23,13 @@ plugin_opts = [
                help='apic_system_id'),
 ]
 
+apic_config = cfg.CONF.ml2_cisco_apic
 conf = 'heat.common.config'
 apic_optgroup = cfg.OptGroup(name='apic_plugin', title='options for the apic plugin')
 cfg.CONF.register_group(apic_optgroup)
 cfg.CONF.register_opts(plugin_opts, apic_optgroup)
 cfg.CONF.import_group(apic_optgroup, conf)
+
 
 class APIC(resource.Resource):
 
@@ -48,15 +49,10 @@ class APIC(resource.Resource):
             'Default': '',
             'Description': _('Network Name')
         },
-        'ToolkitMethod': {
-            'Type': 'String',
+        'Rules': {
+            'Type': 'List',
             'Default': '',
-            'Description': _('Toolkit Method to use')
-        },
-        'ToolkitData': {
-            'Type': 'String',
-            'Default': '',
-            'Description': _('Data for ToolkitMethod')
+            'Description': _('List of rules, eg. ["tcp-80","udp-53"]')
         },
         'RawJSON': {
             'Type': 'List',
@@ -67,80 +63,48 @@ class APIC(resource.Resource):
     }
 
     attributes_schema = {
-        'Name': _('Name'),
-        'Response': _('APIC Response'),
-        'AuthStatusCode': _('APIC Authentication Status'),
-        'Body': _('Body of request'),
-        'Status': _('Status Code of Request'),
+        'name': _('Name'),
     }
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize connection to APIC and logs in
+        :param args:
+        :param kwargs:
+        :return:
+        """
         super(APIC, self).__init__(*args, **kwargs)
-        ## integrate acitoolkit
-        self.apic_attributes = {}
+
+        # ACI Toolkit
         host = cfg.CONF.apic_plugin.apic_host
         username = cfg.CONF.apic_plugin.apic_username
         password = cfg.CONF.apic_plugin.apic_password
-        self.apic_system_id = cfg.CONF.apic_plugin.apic_system_id
-        self._apic_session = acitoolkit.acisession.Session('http://'+host, username, password)
-        resp = self._apic_session.login()
-        self.apic_attributes['AuthStatusCode'] = resp.status_code
+        self._apic_session = acitoolkit.acisession.Session('http://' + host, username, password)
 
+        # APIC Mappings
+        self.apic_system_id = cfg.CONF.apic_plugin.apic_system_id
+        self.app = str(self.apic_system_id) + '_app'
+        self.project = str(self.properties['Project'])
+        self.tenant = '_' + str(self.apic_system_id) + '_' + str(self.project)
 
     def _resolve_attribute(self, name):
-        if name == 'Name':
+        if name == 'name':
             return self.physical_resource_name()
-        elif name == 'Response':
-            return self.resource_id
-        elif name == 'AuthStatusCode':
-            return self.apic_attributes['AuthStatusCode']
-        elif name == 'Status':
-            return self.apic_attributes['Status']
-        else:
-            raise ValueError('No Valid Attribute %s' % name)
 
-
-    def _build_object(self, method, data):
-        if method == 'Tenant':
-            obj = ACI.Tenant(str(data))
-            resp = self._apic_session.push_to_apic(obj.get_url(), obj.get_json())
-            self.resource_id_set(resp.request.body)
-
-        elif method == 'ConsumeContract':
-            tenant = self.properties['Project']
-            epg = self.properties['Network']
-            contract = self.properties['Contract']
-            url = '/api/node/mo/uni/tn-_%s_%s/ap-%s_app/epg-%s.json' \
-                  % (self.apic_system_id,tenant,self.apic_system_id,epg)
-            data = {"fvRsCons":{"attributes":{"tnVzBrCPName": contract,"status":"created"},"children":[]}}
-            resp = self._apic_session.push_to_apic(url, data)
-            self.resource_id_set(resp.request.body)
-            self.apic_attributes['Status'] = resp.status_code
-
-        elif method == 'ProvideContract':
-            tenant = self.properties['Project']
-            epg = self.properties['Network']
-            contract = self.properties['Contract']
-            url = '/api/node/mo/uni/tn-_%s_%s/ap-%s_app/epg-%s.json' \
-                  % (self.apic_system_id,tenant,self.apic_system_id,epg)
-            data = {"fvRsProv":{"attributes":{"tnVzBrCPName": contract,"status":"created"},"children":[]}}
-            resp = self._apic_session.push_to_apic(url, data)
-            self.resource_id_set(resp.request.body)
-            self.apic_attributes['Status'] = resp.status_code
-
-        elif method == 'raw':
-            url = self.properties['RawJSON'][0]
-            data = self.properties['RawJSON'][1]
-            resp = self._apic_session.push_to_apic(url, data)
-            self.resource_id_set(resp.request.body)
-
-        else:
-            raise ValueError('%s is not defined as a method of ACI' % method)
+    def push_to_apic(self, url, data):
+        """
+        :param url: URL for POST request
+        :param data: body of the POST request
+        :return:
+        """
+        auth = self._apic_session.login()
+        logger.info('Authenticated to APIC - Status Code: %s' % auth.status_code)
+        resp = self._apic_session.push_to_apic(url, data)
+        self.resource_id_set(resp.request.body)
+        return resp
 
     def handle_create(self):
-        method = self.properties['ToolkitMethod']
-        data = self.properties['ToolkitData']
-        self._build_object(method, data)
+        pass
 
     def handle_delete(self):
         pass
@@ -149,7 +113,74 @@ class APIC(resource.Resource):
         pass
 
 
+class ConsumeContract(APIC):
+    """
+    A resource which creates a consumer relationship to a contract
+    """
+    def __init__(self, *args, **kwargs):
+        super(ConsumeContract, self).__init__(*args, **kwargs)
+
+    def handle_create(self):
+        epg = self.properties['Network']
+        contract = self.properties['Contract']
+        url = '/api/node/mo/uni/tn-%s/ap-%s/epg-%s.json' \
+              % (self.tenant, self.app, epg)
+        data = {"fvRsCons": {"attributes": {"tnVzBrCPName": contract, "status": "created"}, "children": []}}
+        resp = self.push_to_apic(url, data)
+        self.resource_id_set(resp.request.body)
+
+
+class ProvideContract(APIC):
+    """
+    A resources which creates a provider relationship to a contract
+    """
+    def __init__(self, *args, **kwargs):
+        super(ProvideContract, self).__init__(*args, **kwargs)
+
+    def handle_create(self):
+        epg = self.properties['Network']
+        contract = self.properties['Contract']
+        url = '/api/node/mo/uni/tn-%s/ap-%s/epg-%s.json' \
+              % (self.tenant, self.app, epg)
+        data = {"fvRsProv": {"attributes": {"tnVzBrCPName": contract, "status": "created"}, "children": []}}
+        resp = self.push_to_apic(url, data)
+        self.resource_id_set(resp.request.body)
+
+
+class CreateContract(APIC):
+    """
+    A resource which creates a contract
+    """
+    def __init__(self, *args, **kwargs):
+        super(CreateContract, self).__init__(*args, **kwargs)
+
+    def handle_create(self):
+        tenant = aci.Tenant(self.tenant)
+        contract = aci.Contract(str(self.properties['Contract']), tenant)
+        rules = self.properties['Rules']
+        logger.info(rules)
+        for entry in rules:
+            entry = str(entry)
+            if entry == 'any':
+                aci.FilterEntry(entry, etherT='unspecified', parent=contract)
+                break
+            protocol_port = entry.split('-')
+            aci.FilterEntry(entry,
+                            dFromPort=protocol_port[1],
+                            dToPort=protocol_port[1],
+                            etherT='ip',
+                            prot=protocol_port[0],
+                            parent=contract)
+        url = tenant.get_url()
+        data = tenant.get_json()
+        logger.info(data)
+        self.push_to_apic(url, data)
+
+
 def resource_mapping():
     return {
-        'OS::Heat::APIC': APIC
+        'OS::ACI::APIC': APIC,
+        'OS::ACI::ConsumeContract': ConsumeContract,
+        'OS::ACI::ProvideContract': ProvideContract,
+        'OS::ACI::CreateContract': CreateContract,
     }

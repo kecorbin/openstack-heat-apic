@@ -1,0 +1,89 @@
+heat_template_version: 2013-05-23
+
+description: >
+  An example Heat Orchestration Template (HOT).
+  WordPress is web software you can use to create a beautiful website
+  or blog. This template installs two instances: one running a
+  WordPress deployment and the other using a local MySQL database to
+  store the data. Additionally, this script integrates the APIC plugin
+  to consume existing contracts provided by the fabric for application
+  application dependencies.
+
+parameters:
+
+  key_name:
+    type: string
+    description : Name of a KeyPair to enable SSH access to the instance
+    default: kecorbin
+
+  web_network:
+    type: string
+    default: web-net
+    description: Web Network
+
+  db_network:
+    type: string
+    default: db-net
+    description: DB Network
+
+  web_net_cidr:
+    type: string
+    default: 192.168.151.0/24
+    description: Private network address (CIDR notation)
+
+  db_net_cidr:
+    type: string
+    default: 192.168.152.0/24
+    description: Private network address (CIDR notation)
+
+
+
+resources:
+  web_net:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: web_network }
+
+  web_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: web_net }
+      cidr: { get_param: web_net_cidr }
+      dns_nameservers : ["192.168.2.32" , "171.70.168.183"]
+
+  db_net:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: db_network }
+
+  db_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: db_net }
+      cidr: { get_param: db_net_cidr }
+      dns_nameservers : ["192.168.2.32" , "171.70.168.183"]
+
+
+  contract1:
+    type: OS::ACI::CreateContract
+    properties:
+      Project: demo
+      Contract: heat-contract
+      Rules: ['tcp-22','tcp-80','tcp-443']
+
+  web_provider:
+    type: OS::ACI::ProvideContract
+    depends_on: web_net
+    properties:
+      Project: demo
+      Contract: heat-contract
+      Network: { get_param: web_network }
+
+  db_consumer:
+    type: OS::ACI::ConsumeContract
+    depends_on: web_net
+    properties:
+      Project: demo
+      Contract: heat-contract
+      Network: { get_param: db_network }
+
