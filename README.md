@@ -3,7 +3,7 @@ openstack-heat-apic
 
 Heat plugin for Cisco APIC
 
-# Installation
+
 
 
 ## Environment
@@ -20,7 +20,10 @@ Clone the repository
 
      git clone https://github.com/kecorbin/openstack-heat-apic.git 
 
-Copy the plugin into heat plugin_dirs (/etc/heat/heat.conf)
+
+# Installation
+
+Copy the plugin into heat plugin_dirs specified in /etc/heat/heat.conf
     
      cp plugin/apic_plugin.py /usr/lib/heat
 
